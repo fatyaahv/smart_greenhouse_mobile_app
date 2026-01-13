@@ -1,6 +1,6 @@
-# my_app
+# smart_greenhouse_mobile_app
 
-A new Flutter project.
+A Flutter project for a smart greenhouse mobile app.
 
 ## Getting Started
 
