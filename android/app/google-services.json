@@ -7,7 +7,7 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:367967099430:android:25dde425bd3c167a67a4e7",
+        "mobilesdk_app_id": "your_app_id_here",
         "android_client_info": {
           "package_name": "com.example.my_app"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDfO8_5XYURMNJFkd73DyXDFSG2GusRmIQ"
+          "current_key": "your_api_key_here"
         }
       ],
       "services": {
@@ -26,7 +26,7 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:367967099430:android:3c97f661bb61018a67a4e7",
+        "mobilesdk_app_id": "your_app_id_here",
         "android_client_info": {
           "package_name": "com.greenhouse.my_app"
         }
@@ -34,7 +34,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDfO8_5XYURMNJFkd73DyXDFSG2GusRmIQ"
+          "current_key": "your_api_key_here"
         }
       ],
       "services": {
