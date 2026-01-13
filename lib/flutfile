@@ -1,0 +1,1451 @@
+// main.dart
+import 'package:flutter/material.dart';
+import 'screens/splash_screen.dart';
+
+void main() {
+  runApp(const SmartGreensApp());
+}
+
+class SmartGreensApp extends StatelessWidget {
+  const SmartGreensApp({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'SmartGreens',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        primarySwatch: Colors.green,
+        primaryColor: const Color(0xFF22C55E),
+        scaffoldBackgroundColor: const Color(0xFFF0FDF4),
+        fontFamily: 'Poppins',
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          elevation: 2,
+          iconTheme: IconThemeData(color: Colors.black87),
+          titleTextStyle: TextStyle(
+            color: Colors.black87,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      home: const SplashScreen(),
+    );
+  }
+}
+
+// ============================================
+// models/sensor_data.dart
+// ============================================
+
+class SensorData {
+  final double temperature;
+  final double humidity;
+  final double soilMoisture;
+  final DateTime timestamp;
+
+  SensorData({
+    required this.temperature,
+    required this.humidity,
+    required this.soilMoisture,
+    required this.timestamp,
+  });
+
+  // Firebase entegrasyonu için factory constructor
+  factory SensorData.fromMap(Map<String, dynamic> map) {
+    return SensorData(
+      temperature: (map['temperature'] ?? 0.0).toDouble(),
+      humidity: (map['humidity'] ?? 0.0).toDouble(),
+      soilMoisture: (map['soilMoisture'] ?? 0.0).toDouble(),
+      timestamp: map['timestamp'] != null 
+          ? DateTime.parse(map['timestamp'])
+          : DateTime.now(),
+    );
+  }
+
+  // Firebase'e kaydetmek için map dönüşümü
+  Map<String, dynamic> toMap() {
+    return {
+      'temperature': temperature,
+      'humidity': humidity,
+      'soilMoisture': soilMoisture,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
+}
+
+// ============================================
+// models/device_state.dart
+// ============================================
+
+class DeviceState {
+  final bool fan;
+  final bool heater;
+  final bool irrigation;
+  final bool light;
+
+  DeviceState({
+    required this.fan,
+    required this.heater,
+    required this.irrigation,
+    required this.light,
+  });
+
+  factory DeviceState.fromMap(Map<String, dynamic> map) {
+    return DeviceState(
+      fan: map['fan'] ?? false,
+      heater: map['heater'] ?? false,
+      irrigation: map['irrigation'] ?? false,
+      light: map['light'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'fan': fan,
+      'heater': heater,
+      'irrigation': irrigation,
+      'light': light,
+    };
+  }
+
+  DeviceState copyWith({
+    bool? fan,
+    bool? heater,
+    bool? irrigation,
+    bool? light,
+  }) {
+    return DeviceState(
+      fan: fan ?? this.fan,
+      heater: heater ?? this.heater,
+      irrigation: irrigation ?? this.irrigation,
+      light: light ?? this.light,
+    );
+  }
+}
+
+// ============================================
+// models/notification_model.dart
+// ============================================
+
+class NotificationModel {
+  final String id;
+  final String message;
+  final String time;
+  final String type; // 'info', 'warning', 'error'
+
+  NotificationModel({
+    required this.id,
+    required this.message,
+    required this.time,
+    required this.type,
+  });
+
+  factory NotificationModel.fromMap(Map<String, dynamic> map) {
+    return NotificationModel(
+      id: map['id'] ?? '',
+      message: map['message'] ?? '',
+      time: map['time'] ?? '',
+      type: map['type'] ?? 'info',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'message': message,
+      'time': time,
+      'type': type,
+    };
+  }
+}
+
+// ============================================
+// services/data_service.dart
+// Firebase entegrasyonu için hazır servis katmanı
+// ============================================
+
+class DataService {
+  // Singleton pattern
+  static final DataService _instance = DataService._internal();
+  factory DataService() => _instance;
+  DataService._internal();
+
+  // Simüle edilmiş veri - Firebase bağlantısı kurulduğunda burası değişecek
+  SensorData _currentSensorData = SensorData(
+    temperature: 24.5,
+    humidity: 65.0,
+    soilMoisture: 45.0,
+    timestamp: DateTime.now(),
+  );
+
+  DeviceState _currentDeviceState = DeviceState(
+    fan: false,
+    heater: false,
+    irrigation: false,
+    light: false,
+  );
+
+  final List<NotificationModel> _notifications = [
+    NotificationModel(
+      id: '1',
+      message: 'Sıcaklık normal seviyede',
+      time: '5 dk önce',
+      type: 'info',
+    ),
+    NotificationModel(
+      id: '2',
+      message: 'Toprak nemi düşük',
+      time: '15 dk önce',
+      type: 'warning',
+    ),
+  ];
+
+  // Sensor data stream - Firebase'den veri geldiğinde burada broadcast edilecek
+  Stream<SensorData> getSensorDataStream() async* {
+    // Firebase entegrasyonu için: FirebaseDatabase.instance.ref('sensorData').onValue
+    while (true) {
+      await Future.delayed(const Duration(seconds: 3));
+      // Simüle edilmiş veri güncellemesi
+      _currentSensorData = SensorData(
+        temperature: _currentSensorData.temperature + (0.5 - (DateTime.now().millisecond % 100) / 100),
+        humidity: (_currentSensorData.humidity + (DateTime.now().millisecond % 5 - 2)).clamp(40, 80),
+        soilMoisture: (_currentSensorData.soilMoisture + (DateTime.now().millisecond % 6 - 3)).clamp(20, 80),
+        timestamp: DateTime.now(),
+      );
+      yield _currentSensorData;
+    }
+  }
+
+  // Device state stream
+  Stream<DeviceState> getDeviceStateStream() async* {
+    // Firebase entegrasyonu için: FirebaseDatabase.instance.ref('deviceState').onValue
+    yield _currentDeviceState;
+  }
+
+  // Device kontrolü için method
+  Future<void> updateDeviceState(String device, bool state) async {
+    // Firebase entegrasyonu için: FirebaseDatabase.instance.ref('deviceState/$device').set(state)
+    switch (device) {
+      case 'fan':
+        _currentDeviceState = _currentDeviceState.copyWith(fan: state);
+        break;
+      case 'heater':
+        _currentDeviceState = _currentDeviceState.copyWith(heater: state);
+        break;
+      case 'irrigation':
+        _currentDeviceState = _currentDeviceState.copyWith(irrigation: state);
+        break;
+      case 'light':
+        _currentDeviceState = _currentDeviceState.copyWith(light: state);
+        break;
+    }
+    // Simülasyon için kısa gecikme
+    await Future.delayed(const Duration(milliseconds: 300));
+  }
+
+  // Bildirimler
+  List<NotificationModel> getNotifications() {
+    return _notifications;
+  }
+
+  // Eşik değerleri güncelleme - Firebase'e kaydedilecek
+  Future<void> updateThresholds({
+    double? maxTemp,
+    double? minSoilMoisture,
+    double? targetHumidity,
+  }) async {
+    // Firebase entegrasyonu için: FirebaseDatabase.instance.ref('settings/thresholds').update({...})
+    await Future.delayed(const Duration(milliseconds: 500));
+  }
+}
+
+// ============================================
+// screens/splash_screen.dart
+// ============================================
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({Key? key}) : super(key: key);
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 2), () {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const MainScreen()),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF22C55E), Color(0xFF10B981)],
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const Icon(
+                  Icons.eco,
+                  size: 80,
+                  color: Color(0xFF22C55E),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'SmartGreens',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Akıllı Sera Yönetim Sistemi',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.white70,
+                ),
+              ),
+              const SizedBox(height: 40),
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================
+// screens/main_screen.dart
+// ============================================
+
+class MainScreen extends StatefulWidget {
+  const MainScreen({Key? key}) : super(key: key);
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  int _currentIndex = 0;
+  final DataService _dataService = DataService();
+
+  final List<Widget> _screens = [
+    const DashboardScreen(),
+    const ControlScreen(),
+    const NotificationsScreen(),
+    const SettingsScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF22C55E), Color(0xFF10B981)],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.eco, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Text('SmartGreens'),
+          ],
+        ),
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF22C55E),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  'Bağlı',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () => onToggle(device, state),
+            child: Container(
+              width: 60,
+              height: 32,
+              decoration: BoxDecoration(
+                color: state ? Colors.green.shade500 : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: AnimatedAlign(
+                duration: const Duration(milliseconds: 200),
+                alignment: state ? Alignment.centerRight : Alignment.centerLeft,
+                child: Container(
+                  margin: const EdgeInsets.all(4),
+                  width: 24,
+                  height: 24,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================
+// screens/notifications_screen.dart
+// ============================================
+
+class NotificationsScreen extends StatelessWidget {
+  const NotificationsScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final dataService = DataService();
+    final notifications = dataService.getNotifications();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF9333EA), Color(0xFF7E22CE)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.purple.shade300,
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Bildirimler',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Sistem bildirimleri ve uyarılar',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          ...notifications.map((notif) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: NotificationCard(notification: notif),
+          )),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================
+// widgets/notification_card.dart
+// ============================================
+
+class NotificationCard extends StatelessWidget {
+  final NotificationModel notification;
+
+  const NotificationCard({Key? key, required this.notification}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    Color bgColor;
+    Color iconColor;
+    
+    if (notification.type == 'warning') {
+      bgColor = Colors.yellow.shade50;
+      iconColor = Colors.yellow.shade700;
+    } else if (notification.type == 'error') {
+      bgColor = Colors.red.shade50;
+      iconColor = Colors.red.shade700;
+    } else {
+      bgColor = Colors.blue.shade50;
+      iconColor = Colors.blue.shade700;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade200,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.notifications,
+              color: iconColor,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  notification.message,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  notification.time,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================
+// screens/settings_screen.dart
+// ============================================
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({Key? key}) : super(key: key);
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  final TextEditingController _maxTempController = TextEditingController(text: '30');
+  final TextEditingController _minSoilController = TextEditingController(text: '30');
+  final TextEditingController _targetHumidityController = TextEditingController(text: '65');
+  final DataService _dataService = DataService();
+
+  @override
+  void dispose() {
+    _maxTempController.dispose();
+    _minSoilController.dispose();
+    _targetHumidityController.dispose();
+    super.dispose();
+  }
+
+  void _saveSettings() async {
+    await _dataService.updateThresholds(
+      maxTemp: double.tryParse(_maxTempController.text),
+      minSoilMoisture: double.tryParse(_minSoilController.text),
+      targetHumidity: double.tryParse(_targetHumidityController.text),
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 12),
+              Text('Ayarlar kaydedildi'),
+            ],
+          ),
+          backgroundColor: Colors.green.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF475569), Color(0xFF334155)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.shade400,
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ayarlar',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Eşik değerleri ve tercihler',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.shade200,
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                _buildSettingField(
+                  'Maksimum Sıcaklık (°C)',
+                  _maxTempController,
+                  Icons.thermostat,
+                ),
+                const SizedBox(height: 16),
+                _buildSettingField(
+                  'Minimum Toprak Nemi (%)',
+                  _minSoilController,
+                  Icons.grass,
+                ),
+                const SizedBox(height: 16),
+                _buildSettingField(
+                  'Hedef Nem (%)',
+                  _targetHumidityController,
+                  Icons.water_drop,
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _saveSettings,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF22C55E),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Ayarları Kaydet',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.shade200,
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Uygulama Hakkında',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildInfoRow('Versiyon', '1.0.0'),
+                const Divider(height: 24),
+                _buildInfoRow('Geliştirici', 'SmartGreens Team'),
+                const Divider(height: 24),
+                _buildInfoRow('Bağlantı Durumu', 'ESP32 - Aktif'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingField(String label, TextEditingController controller, IconData icon) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 20, color: Colors.grey.shade700),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.grey.shade50,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF22C55E), width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+      ],
+    );
+  }
+}
+        ],
+      ),
+      body: _screens[_currentIndex],
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.shade300,
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: const Color(0xFF22C55E),
+          unselectedItemColor: Colors.grey,
+          selectedFontSize: 12,
+          unselectedFontSize: 12,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.dashboard),
+              label: 'Ana Sayfa',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings_remote),
+              label: 'Kontrol',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.notifications),
+              label: 'Bildirimler',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings),
+              label: 'Ayarlar',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================
+// screens/dashboard_screen.dart
+// ============================================
+
+class DashboardScreen extends StatelessWidget {
+  const DashboardScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final dataService = DataService();
+
+    return StreamBuilder<SensorData>(
+      stream: dataService.getSensorDataStream(),
+      builder: (context, snapshot) {
+        final sensorData = snapshot.data ?? SensorData(
+          temperature: 0,
+          humidity: 0,
+          soilMoisture: 0,
+          timestamp: DateTime.now(),
+        );
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Durum Kartı
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF22C55E), Color(0xFF10B981)],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.green.shade300,
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Sera Durumu',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'Tüm sistemler çalışıyor',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.eco,
+                            size: 36,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Son güncelleme: ${sensorData.timestamp.hour}:${sensorData.timestamp.minute.toString().padLeft(2, '0')}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Sensör Kartları
+              SensorCard(
+                title: 'Sıcaklık',
+                value: sensorData.temperature.toStringAsFixed(1),
+                unit: '°C',
+                icon: Icons.thermostat,
+                color: Colors.red,
+                status: sensorData.temperature > 30 ? 'Dikkat' : 'Normal',
+              ),
+              const SizedBox(height: 12),
+              SensorCard(
+                title: 'Nem',
+                value: sensorData.humidity.toStringAsFixed(0),
+                unit: '%',
+                icon: Icons.water_drop,
+                color: Colors.blue,
+                status: 'Normal',
+              ),
+              const SizedBox(height: 12),
+              SensorCard(
+                title: 'Toprak Nemi',
+                value: sensorData.soilMoisture.toStringAsFixed(0),
+                unit: '%',
+                icon: Icons.grass,
+                color: Colors.amber,
+                status: sensorData.soilMoisture < 30 ? 'Düşük' : 'Normal',
+              ),
+              const SizedBox(height: 20),
+
+              // Günlük Özet
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.shade200,
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.trending_up, color: Colors.green.shade600),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Günlük Özet',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildSummaryItem('22°C', 'Ort. Sıcaklık'),
+                        _buildSummaryItem('68%', 'Ort. Nem'),
+                        _buildSummaryItem('3.2L', 'Su Kullanımı'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSummaryItem(String value, String label) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ============================================
+// widgets/sensor_card.dart
+// ============================================
+
+class SensorCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final String unit;
+  final IconData icon;
+  final Color color;
+  final String status;
+
+  const SensorCard({
+    Key? key,
+    required this.title,
+    required this.value,
+    required this.unit,
+    required this.icon,
+    required this.color,
+    required this.status,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    Color statusColor;
+    Color statusBgColor;
+    
+    if (status == 'Normal') {
+      statusColor = Colors.green.shade700;
+      statusBgColor = Colors.green.shade50;
+    } else if (status == 'Dikkat' || status == 'Düşük') {
+      statusColor = Colors.orange.shade700;
+      statusBgColor = Colors.orange.shade50;
+    } else {
+      statusColor = Colors.red.shade700;
+      statusBgColor = Colors.red.shade50;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade200,
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 28),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: statusBgColor,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: statusColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      value,
+                      style: const TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6, left: 4),
+                      child: Text(
+                        unit,
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================
+// screens/control_screen.dart
+// ============================================
+
+class ControlScreen extends StatefulWidget {
+  const ControlScreen({Key? key}) : super(key: key);
+
+  @override
+  State<ControlScreen> createState() => _ControlScreenState();
+}
+
+class _ControlScreenState extends State<ControlScreen> {
+  final DataService _dataService = DataService();
+  
+  DeviceState _deviceState = DeviceState(
+    fan: false,
+    heater: false,
+    irrigation: false,
+    light: false,
+  );
+
+  void _toggleDevice(String device, bool currentState) async {
+    await _dataService.updateDeviceState(device, !currentState);
+    setState(() {
+      switch (device) {
+        case 'fan':
+          _deviceState = _deviceState.copyWith(fan: !currentState);
+          break;
+        case 'heater':
+          _deviceState = _deviceState.copyWith(heater: !currentState);
+          break;
+        case 'irrigation':
+          _deviceState = _deviceState.copyWith(irrigation: !currentState);
+          break;
+        case 'light':
+          _deviceState = _deviceState.copyWith(light: !currentState);
+          break;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.shade300,
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Cihaz Kontrolü',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Sistemleri manuel olarak yönetin',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          ControlCard(
+            title: 'Havalandırma',
+            icon: Icons.mode_fan_off,
+            device: 'fan',
+            state: _deviceState.fan,
+            onToggle: _toggleDevice,
+          ),
+          const SizedBox(height: 12),
+          ControlCard(
+            title: 'Isıtıcı',
+            icon: Icons.thermostat,
+            device: 'heater',
+            state: _deviceState.heater,
+            onToggle: _toggleDevice,
+          ),
+          const SizedBox(height: 12),
+          ControlCard(
+            title: 'Sulama Sistemi',
+            icon: Icons.water_drop,
+            device: 'irrigation',
+            state: _deviceState.irrigation,
+            onToggle: _toggleDevice,
+          ),
+          const SizedBox(height: 12),
+          ControlCard(
+            title: 'Aydınlatma',
+            icon: Icons.lightbulb,
+            device: 'light',
+            state: _deviceState.light,
+            onToggle: _toggleDevice,
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.yellow.shade50,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.yellow.shade200, width: 2),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.yellow.shade700),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Otomatik Mod',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.yellow.shade900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Manuel kontrol kullanıldığında otomatik ayarlar geçersiz kılınır.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.yellow.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================
+// widgets/control_card.dart
+// ============================================
+
+class ControlCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final String device;
+  final bool state;
+  final Function(String, bool) onToggle;
+
+  const ControlCard({
+    Key? key,
+    required this.title,
+    required this.icon,
+    required this.device,
+    required this.state,
+    required this.onToggle,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade200,
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: state ? Colors.green.shade500 : Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: Colors.white, size: 28),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  state ? 'Aktif' : 'Kapalı',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],

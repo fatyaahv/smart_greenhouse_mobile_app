@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "367967099430",
+    "project_id": "greenhouse-project-bfcbc",
+    "storage_bucket": "greenhouse-project-bfcbc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:367967099430:android:25dde425bd3c167a67a4e7",
+        "android_client_info": {
+          "package_name": "com.example.my_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfO8_5XYURMNJFkd73DyXDFSG2GusRmIQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:367967099430:android:3c97f661bb61018a67a4e7",
+        "android_client_info": {
+          "package_name": "com.greenhouse.my_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfO8_5XYURMNJFkd73DyXDFSG2GusRmIQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
